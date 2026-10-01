@@ -1,0 +1,18 @@
+# Variables de entorno local
+.env
+*.env
+
+# Archivos pesados de respaldo de base de datos
+*.backup
+*.sql
+
+# Archivos comprimidos
+*.zip
+*.tar.gz
+
+# Archivos viejos o temporales de respaldo de código
+*.go1
+*(copy*
+
+# Script de cliente de pruebas
+p20.py
