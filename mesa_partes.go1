@@ -1,0 +1,40 @@
+// mesa_partes.go
+package main
+
+import ("encoding/json", "net/http")
+
+// Manejador secundario especializado en Mesa de Partes
+func HMesaPartes(w http.ResponseWriter, r *http.Request, laData map[string]any, id string) {
+	var lcRpta string
+	var err error
+
+	if id == "MP_REGISTRAR" {
+		// Tu lógica para registrar documento
+		// lo := SMesaPartes{Data: laData}
+		// lcRpta, err = lo.omRegistrar()
+
+	} else if id == "MP_CONSULTAR" {
+		// Tu lógica para consultar estado
+		// lo := SMesaPartes{Data: laData}
+		// lcRpta, err = lo.omConsultar()
+
+	} else if id == "MP_ADJUNTAR" {
+		// Tu lógica para adjuntar archivos
+		// lo := SMesaPartes{Data: laData}
+		// lcRpta, err = lo.omAdjuntar()
+
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"ERROR": "ID de Mesa de Partes no reconocido"})
+		return
+	}
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"ERROR": err.Error()})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(lcRpta))
+}

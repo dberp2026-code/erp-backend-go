@@ -1,0 +1,90 @@
+package main
+import ("context"; "encoding/json"; "errors"; "fmt"; "regexp"; "crypto/md5"; "github.com/jackc/pgx/v5")
+
+// Definición de la Estructura ("Objeto")
+type SLogin struct {
+   Datos map[string]any // Atributo donde ya llegan los datos parseados
+}
+
+type Respuesta struct {
+   CNOMBRE string `json:"CNOMBRE"`
+   CNRODNI string `json:"CNRODNI"`
+   DATOS   []struct {
+      CCODALU string `json:"CCODALU"`
+      CUNIACA string `json:"CUNIACA"`
+      CNOMUNI string `json:"CNOMUNI"`
+   } `json:"DATOS"`
+}
+
+// ----------------------------------------------
+// Funcion principal de login
+// 2026-09-01 FPM Creacion
+// ----------------------------------------------
+func (so *SLogin) omLogin() (string, error) {
+   if err := so.mxValParam(); err != nil {
+      return "", err
+   }
+   laData, err := so.mxLogin()
+   if err != nil {
+      return "", err
+   }
+   paData, err := json.Marshal(laData)
+   if err != nil {
+      return "", err
+   }
+   //log.Println("Respuesta:", string(paData))
+   return string(paData), nil
+}
+
+// Valida que existan los campos obligatorios en so.Datos y que cumplan el formato esperado
+func (so *SLogin) mxValParam() error {
+   _, llOk := so.Datos["CNRODNI"].(string)
+   if !llOk || !regexp.MustCompile(`^[0-9]{8}$`).MatchString(so.Datos["CNRODNI"].(string)) {
+      return errors.New("error: 'CNRODNI' es obligatorio y debe tener 8 dígitos")
+   }
+   _, llOk = so.Datos["CCLAVE"].(string)
+   if !llOk || !regexp.MustCompile(`^[0-9]{4}$`).MatchString(so.Datos["CCLAVE"].(string)) {
+      return errors.New("error: 'CCLAVE' es obligatorio y debe tener 4 dígitos")
+   }
+   return nil
+}
+
+func (so *SLogin) mxLogin() (Respuesta, error) {
+   var laData Respuesta
+   // 1. Buscar nombre y clave del usuario
+   lcSql := "SELECT cNombre, cClave FROM S01MPER WHERE cNroDni = $1"
+   var lcClave string
+   err := poPool.QueryRow(context.Background(), lcSql, so.Datos["CNRODNI"].(string)).Scan(&laData.CNOMBRE, &lcClave)
+   if err != nil {
+      if errors.Is(err, pgx.ErrNoRows) {
+         return laData, errors.New("DNI NO EXISTE")
+      }
+      return laData, err
+   }
+   // 2. Verificar la clave
+   lcClave1 := fmt.Sprintf("%x", md5.Sum([]byte(so.Datos["CCLAVE"].(string))))
+   if lcClave != lcClave1 {
+      return laData, errors.New("CLAVE INCORRECTA")
+   }
+   laData.CNRODNI = so.Datos["CNRODNI"].(string)
+   // 3. Traer las unidades académicas del alumno
+   //lcSql = "SELECT A.cCodAlu, A.cUniAca, B.cNomUni FROM A01MALU A INNER JOIN A01MUAC B ON B.cUniAca = A.cUniAca WHERE A.cNroDni = $1"
+   lcSql = "SELECT A.cCodEst, A.cUniAca, B.cNomUni FROM A01MEST A INNER JOIN A01MUAC B ON B.cUniAca = A.cUniAca WHERE A.cNroDni = $1"
+   RS, err := poPool.Query(context.Background(), lcSql, so.Datos["CNRODNI"].(string))
+   if err != nil {
+      return laData, err
+   }
+   defer RS.Close()
+   for RS.Next() {
+       var laTmp struct {CCODALU string `json:"CCODALU"`; CUNIACA string `json:"CUNIACA"`; CNOMUNI string `json:"CNOMUNI"`}
+       err := RS.Scan(&laTmp.CCODALU, &laTmp.CUNIACA, &laTmp.CNOMUNI)
+       if err != nil {
+          return laData, err
+       }
+       laData.DATOS = append(laData.DATOS, laTmp)
+   }
+   if err := RS.Err(); err != nil {
+      return laData, err
+   }
+   return laData, nil
+}

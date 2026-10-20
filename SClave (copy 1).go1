@@ -1,0 +1,91 @@
+package main
+import ("crypto/md5"; "encoding/json"; "errors"; "fmt"; "math/rand"; "regexp"; "slices"; "log")
+
+// Definición de la Estructura ("Objeto")
+type SClave struct {
+   Datos map[string]any
+}
+
+type RespuestaClave struct {
+   CCLAVE string `json:"CCLAVE"`
+}
+
+// ----------------------------------------------
+// Cifra la clave
+// 2026-09-01 FPM Creacion
+// ----------------------------------------------
+func (so *SClave) omCifrarClave() (string, error) {
+   if err := so.mxValParam(); err != nil {
+      return "", err
+   }
+   lcSeed := fmt.Sprintf("%02x", rand.Intn(256))
+   lcClaveC, err := so.mxCifrarClave(lcSeed)
+   if err != nil {
+      return "", err
+   }
+   laData := RespuestaClave{CCLAVE: lcClaveC}
+   paData, err := json.Marshal(laData)
+   if err != nil {
+      return "", err
+   }
+   //log.Println("Respuesta:", string(paData))
+   return string(paData), nil
+}
+
+// Valida que existan los campos obligatorios en so.Datos y que cumplan el formato esperado
+func (so *SClave) mxValParam() error {
+   _, llOk := so.Datos["CCLAVE"].(string)
+   if !llOk || !regexp.MustCompile(`^[a-f0-9]{32}$`).MatchString(so.Datos["CCLAVE"].(string)) {
+      return errors.New("CLAVE NO DEFINIDA O INVÁLIDA")
+   }
+   return nil
+}
+
+func (so *SClave) mxCifrarClave(p_cSeed string) (string, error) {
+   lcClave := fmt.Sprintf("%x", md5.Sum([]byte(p_cSeed + so.Datos["CCLAVE"].(string))))
+   lcClave1 := []byte(lcClave)
+   slices.Reverse(lcClave1)
+   lcClave2 := string(lcClave1)
+   lcClave2 = p_cSeed + lcClave2[len(lcClave2)-30:]
+   return lcClave2, nil
+}
+
+// ----------------------------------------------
+// Comparar clave
+// 2026-09-01 FPM Creacion
+// ----------------------------------------------
+func (so *SClave) omCompararClave() (string, error) {
+   if err := so.mxValParamCompararClave(); err != nil {
+      return "", err
+   }
+   err := so.mxCompararClave()
+   if err != nil {
+      return `{"ERROR": "CLAVE NO CONCUERDA"}`, err
+   }
+   return `{"OK": "OK"}`, nil
+}
+
+// Valida que existan los campos obligatorios en so.Datos y que cumplan el formato esperado
+func (so *SClave) mxValParamCompararClave() error {
+   _, llOk := so.Datos["CCLAVE"].(string)
+   if !llOk || !regexp.MustCompile(`^[a-f0-9]{32}$`).MatchString(so.Datos["CCLAVE"].(string)) {
+      return errors.New("CLAVE NO DEFINIDA O INVÁLIDA")
+   }
+   _, llOk = so.Datos["CCLAVEC"].(string)
+   if !llOk || !regexp.MustCompile(`^[a-f0-9]{32}$`).MatchString(so.Datos["CCLAVEC"].(string)) {
+      return errors.New("CLAVE CIFRADA NO DEFINIDA O INVÁLIDA")
+   }
+   return nil
+}
+
+func (so *SClave) mxCompararClave() (error) {
+   lcSeed := so.Datos["CCLAVEC"].(string)[:2]
+   lcClaveC, err := so.mxCifrarClave(lcSeed)
+   if err != nil {
+      return err
+   }
+   if lcClaveC != so.Datos["CCLAVEC"] {
+      return errors.New("CLAVE ERRADA")
+   }
+   return nil
+}

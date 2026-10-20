@@ -1,0 +1,10 @@
+# Archivos de configuración local
+.env
+
+# Binarios compilados y ejecutables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
