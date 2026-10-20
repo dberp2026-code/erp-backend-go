@@ -39,3 +39,5 @@ func ConnectDB() error {
     log.Println("Conectado exitosamente a la base de datos (Supabase)")
     return nil
 }
+
+// Prueba para cambios en repositorio...
